@@ -5,10 +5,11 @@ Parts of this code were originally based on the gtp module
 in the Deep-Go project by Isaac Henrion and Amos Storkey 
 at the University of Edinburgh.
 """
-import traceback
+import traceback, time
 from sys import stdin, stdout, stderr
 from board_util import (
     GoBoardUtil,
+    is_black_white,
     BLACK,
     WHITE,
     EMPTY,
@@ -47,9 +48,10 @@ class GtpConnection:
             "version": self.version_cmd,
             "known_command": self.known_command_cmd,
             "genmove": self.genmove_cmd,
-            "timelimit": self.timelimit,
+            "timelimit": self.timelimit_cmd,
             "list_commands": self.list_commands_cmd,
             "play": self.play_cmd,
+            "solve": self.solve_cmd,
             "legal_moves": self.legal_moves_cmd,
             "gogui-rules_game_id": self.gogui_rules_game_id_cmd,
             "gogui-rules_board_size": self.gogui_rules_board_size_cmd,
@@ -263,7 +265,7 @@ class GtpConnection:
             self.respond("pass")
             return
         board_color = args[0].lower()
-        color = color_to_int(board_color)
+        color = color_to_int(board_color)        
         move = self.go_engine.get_move(self.board, color)
         move_coord = point_to_coord(move, self.board.size)
         move_as_string = format_point(move_coord)
@@ -273,9 +275,23 @@ class GtpConnection:
         else:
             self.respond("Illegal move: {}".format(move_as_string))
 
-    def timelimit(self, args):
-        if 1 <= args[0] <= 100:
-            self.max_time = args[0]
+    def solve_cmd(self, args):
+        """
+        Return the color of the winner and the position of its move
+        """
+        winBlack, timeBlack = solveForColor(self.board, BLACK)
+        if winBlack and timeBlack <= self.max_time:
+            self.respond("b")
+        else:
+            winner = EMPTY
+            winWhite, timeWhite = solveForColor(self.board, WHITE)
+            if winWhite and timeWhite <= self.max_time:
+                winner = WHITE
+            self.respond(winner)
+
+    def timelimit_cmd(self, args):
+        if 1 <= int(args[0]) <= 100:
+            self.max_time = int(args[0])
             self.respond("max time has changed to " + str(args[0]) + " seconds")
         else:
             self.respond("max time needs to be from 1 and 100 seconds")
@@ -346,6 +362,35 @@ class GtpConnection:
                      "pstring/Show Board/gogui-rules_board\n"
                      )
 
+def negamaxBoolean(board):
+    if ((board.detect_five_in_a_row() != EMPTY) or len(board.get_empty_points()) == 0):
+        return evaluateForToPlay(board)
+    for m in board.get_empty_points():
+        board.play_move(m, board.current_player)
+        success = not negamaxBoolean(board)
+        board.undoMove()
+        if success:
+            return True
+    return False
+
+def evaluateForToPlay(board):
+    winColor = board.detect_five_in_a_row()
+    if (winColor == EMPTY):
+        winColor = GoBoardUtil.opponent(board.current_player)
+    if winColor == board.current_player:
+        return True
+    return False
+
+def solveForColor(board, color):
+    assert is_black_white(color)
+    #drawWinner = GoBoardUtil.opponent(color)
+    start = time.process_time()
+    #for m in board.get_empty_points():
+    winForToPlay = negamaxBoolean(board)
+    timeUsed = time.process_time() - start
+    winForColor = winForToPlay == (color == board.current_player)
+    return winForColor, timeUsed
+
 def point_to_coord(point, boardsize):
     """
     Transform point given as board array index 
@@ -408,4 +453,5 @@ def color_to_int(c):
     try:
         return color_to_int[c]
     except:
-        raise KeyError("\"{}\" wrong color".format(c)) 
+        raise KeyError("\"{}\" wrong color".format(c))
+    
