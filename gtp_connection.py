@@ -1,7 +1,6 @@
 """
 gtp_connection.py
 Module for playing games of Go using GoTextProtocol
-
 Parts of this code were originally based on the gtp module 
 in the Deep-Go project by Isaac Henrion and Amos Storkey 
 at the University of Edinburgh.
@@ -26,7 +25,6 @@ class GtpConnection:
     def __init__(self, go_engine, board, debug_mode=False):
         """
         Manage a GTP connection for a Go-playing engine
-
         Parameters
         ----------
         go_engine:
@@ -400,4 +398,4 @@ def color_to_int(c):
     try:
         return color_to_int[c]
     except:
-        raise KeyError("\"{}\" wrong color".format(c))
+        raise KeyError("\"{}\" wrong color".format(c)) 
