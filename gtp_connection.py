@@ -276,12 +276,12 @@ class GtpConnection:
             self.respond("Illegal move: {}".format(move_as_string))
 
     def timelimit(self, args):
-        if 1 <= args[0] <= 100:
-            self.max_time = args[0]
+        if 1 <= int(args[0]) <= 100:
+            self.max_time = int(args[0])
             self.respond("max time has changed to " + str(args[0]) + " seconds")
         else:
             self.respond("max time needs to be from 1 and 100 seconds")
-            
+
     def gogui_rules_game_id_cmd(self, args):
         self.respond("Gomoku")
 
