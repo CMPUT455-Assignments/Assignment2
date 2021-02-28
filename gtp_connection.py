@@ -37,6 +37,7 @@ class GtpConnection:
         self._debug_mode = debug_mode
         self.go_engine = go_engine
         self.board = board
+        self.max_time = 1
         self.commands = {
             "protocol_version": self.protocol_version_cmd,
             "quit": self.quit_cmd,
@@ -48,6 +49,7 @@ class GtpConnection:
             "version": self.version_cmd,
             "known_command": self.known_command_cmd,
             "genmove": self.genmove_cmd,
+            "timelimit": self.timelimit,
             "list_commands": self.list_commands_cmd,
             "play": self.play_cmd,
             "legal_moves": self.legal_moves_cmd,
@@ -69,6 +71,7 @@ class GtpConnection:
             "known_command": (1, "Usage: known_command CMD_NAME"),
             "genmove": (1, "Usage: genmove {w,b}"),
             "play": (2, "Usage: play {b,w} MOVE"),
+            "timelimit": (1, "Usage: timelimit INT"),
             "legal_moves": (1, "Usage: legal_moves {w,b}"),
         }
 
@@ -272,6 +275,13 @@ class GtpConnection:
         else:
             self.respond("Illegal move: {}".format(move_as_string))
 
+    def timelimit(self, args):
+        if 1 <= args[0] <= 100:
+            self.max_time = args[0]
+            self.respond("max time has changed to " + str(args[0]) + " seconds")
+        else:
+            self.respond("max time needs to be from 1 and 100 seconds")
+            
     def gogui_rules_game_id_cmd(self, args):
         self.respond("Gomoku")
 
