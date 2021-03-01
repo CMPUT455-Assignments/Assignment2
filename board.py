@@ -107,6 +107,7 @@ class GoBoard(object):
         """
         Creates a start state, an empty board with given size.
         """
+        self.moves = []
         self.size = size
         self.NS = size + 1
         self.WE = 1
@@ -129,6 +130,7 @@ class GoBoard(object):
         b.current_player = self.current_player
         assert b.maxpoint == self.maxpoint
         b.board = np.copy(self.board)
+        b.moves = self.moves
         return b
 
     def get_color(self, point):
@@ -300,6 +302,7 @@ class GoBoard(object):
         self.current_player = GoBoardUtil.opponent(color)
         self.last2_move = self.last_move
         self.last_move = point
+        self.moves.append(point)
         return True
 
     def neighbors_of_color(self, point, color):
@@ -372,7 +375,9 @@ class GoBoard(object):
         return EMPTY
 
     def undoMove(self):
-        self.board[self.last_move] = EMPTY
-        self.last_move = self.last2_move
+        #self.board[self.last_move] = EMPTY
+        #self.last_move = self.last2_move
+        point = self.moves.pop()
+        self.board[point] = EMPTY
         self.current_player = GoBoardUtil.opponent(self.current_player)
         

@@ -454,4 +454,4 @@ def color_to_int(c):
         return color_to_int[c]
     except:
         raise KeyError("\"{}\" wrong color".format(c))
-    
+
