@@ -2,7 +2,8 @@
 # /usr/bin/python3
 # Set the path to your python3 above
 
-from gtp_connection import GtpConnection
+import signal, alphabeta
+from gtp_connection import GtpConnection, color_to_string
 from board_util import GoBoardUtil
 from board import GoBoard
 
@@ -25,9 +26,42 @@ class Gomoku():
 
 
 
-    def get_move(self, board, color):
-        return GoBoardUtil.generate_random_move(board, color)
+    def get_move(self, board, color, timelimit, tt, zobrist):
+        result, move = self.solve(board, timelimit, tt, zobrist)
 
+        if move is not None:
+            return move
+        else:
+            return GoBoardUtil.generate_random_move(board, color)
+
+    def solve(self, board, timelimit, tt, zobrist):
+        board_copy = board.copy()
+        signal.alarm(timelimit)
+        try:
+            score, move = alphabeta.call_alphabeta(board, tt, zobrist)
+
+            if score == 0:
+                return "draw", move
+            else:
+                if score > 0:
+                    winner = board.current_player
+                    return color_to_string(winner), move
+                else:
+                    winner = GoBoardUtil.opponent(board.current_player)
+                    return color_to_string(winner), None
+        except TimeoutException:
+            board.load(board_copy)
+            return "unknown", None
+        finally:
+            signal.alarm(0)
+
+def handle_exception(signum, frame):
+    raise TimeoutException
+
+class TimeoutException(Exception):
+    pass
+
+signal.signal(signal.SIGALRM, handle_exception)
 
 def run():
     """
