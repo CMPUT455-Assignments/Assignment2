@@ -275,7 +275,7 @@ class GtpConnection:
         else:
             self.respond("Illegal move: {}".format(move_as_string))
 
-    '''def solve_cmd(self, args):
+    def solve_cmd(self, args):
         """
         Return the color of the winner and the position of its move
         """
@@ -287,7 +287,7 @@ class GtpConnection:
             winWhite, timeWhite = solveForColor(self.board, WHITE)
             if winWhite and timeWhite <= self.max_time:
                 winner = WHITE
-            self.respond(winner)'''
+            self.respond(winner)
 
     def timelimit_cmd(self, args):
         if 1 <= int(args[0]) <= 100:

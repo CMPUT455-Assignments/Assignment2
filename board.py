@@ -371,9 +371,11 @@ class GoBoard(object):
                 return prev
         return EMPTY
 
-    '''def undoMove(self):
-        #self.board[self.last_move] = EMPTY
-        #self.last_move = self.last2_move
-        point = self.moves.pop()
-        self.board[point] = EMPTY
-        self.current_player = GoBoardUtil.opponent(self.current_player)'''
+    def undoMove(self, move):
+        self.board[move] = EMPTY
+        self.current_player = GoBoardUtil.opponent(self.current_player)
+
+    def get_best_moves(self, m):
+        moves = self.get_empty_points()
+        return sorted(moves, key=self._move_score, reverse=True)
+
