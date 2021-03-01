@@ -35,6 +35,7 @@ The board is stored as a one-dimensional array of GO_POINT in self.board.
 See GoBoardUtil.coord_to_point for explanations of the array encoding.
 """
 class GoBoard(object):
+
     def __init__(self, size):
         """
         Creates a Go board of given size
@@ -42,6 +43,34 @@ class GoBoard(object):
         assert 2 <= size <= MAXSIZE
         self.reset(size)
         self.calculate_rows_cols_diags()
+
+    def reset(self, size):
+        """
+        Creates a start state, an empty board with given size.
+        """
+        self.list_of_scores = [0, 1, 3, 5, 10, 50]
+        self.size = size
+        self.NS = size + 1
+        self.WE = 1
+        self.ko_recapture = None
+        self.last_move = None
+        self.last2_move = None
+        self.current_player = BLACK
+        self.maxpoint = size * size + 3 * (size + 1)
+        self.board = np.full(self.maxpoint, BORDER, dtype=GO_POINT)
+        self._initialize_empty_points(self.board)
+        self.calculate_rows_cols_diags()
+
+    def load(self, board):
+        self.reset(board.size)
+        assert self.NS == board.NS
+        assert self.WE == board.WE
+        self.ko_recapture = board.ko_recapture
+        self.last_move = board.last_move
+        self.last2_move = board.last2_move
+        self.current_player = board.current_player
+        assert self.maxpoint == board.maxpoint
+        self.board = np.copy(board.board)
 
     def calculate_rows_cols_diags(self):
         if self.size < 5:
@@ -103,22 +132,6 @@ class GoBoard(object):
         assert len(self.cols) == self.size
         assert len(self.diags) == (2 * (self.size - 5) + 1) * 2
 
-    def reset(self, size):
-        """
-        Creates a start state, an empty board with given size.
-        """
-        self.size = size
-        self.NS = size + 1
-        self.WE = 1
-        self.ko_recapture = None
-        self.last_move = None
-        self.last2_move = None
-        self.current_player = BLACK
-        self.maxpoint = size * size + 3 * (size + 1)
-        self.board = np.full(self.maxpoint, BORDER, dtype=GO_POINT)
-        self._initialize_empty_points(self.board)
-        self.calculate_rows_cols_diags()
-
     def copy(self):
         b = GoBoard(self.size)
         assert b.NS == self.NS
@@ -136,6 +149,29 @@ class GoBoard(object):
 
     def pt(self, row, col):
         return coord_to_point(row, col, self.size)
+
+    def undo_move(self, move):
+        self.board[move] = EMPTY
+        self.current_player = GoBoardUtil.opponent(self.current_player)
+
+    def get_best_moves(self):
+        moves = self.get_empty_points()
+        return sorted(moves, key=self._move_score, reverse=True)
+
+    def _move_score(self, m):
+        self.play_move(m, self.current_player)
+        score = -self.evaluate()
+        self.undo_move(m)
+        return score
+
+    def end_of_game(self):
+        if self.get_empty_points().size == 0:
+            return True
+        result = self.detect_five_in_a_row()
+        if result == BLACK or result == WHITE:
+            return True
+        else:
+            return False
 
     def is_legal(self, point, color):
         """
@@ -177,89 +213,12 @@ class GoBoard(object):
             start = self.row_start(row)
             board[start : start + self.size] = EMPTY
 
-    def is_eye(self, point, color):
-        """
-        Check if point is a simple eye for color
-        """
-        if not self._is_surrounded(point, color):
-            return False
-        # Eye-like shape. Check diagonals to detect false eye
-        opp_color = GoBoardUtil.opponent(color)
-        false_count = 0
-        at_edge = 0
-        for d in self._diag_neighbors(point):
-            if self.board[d] == BORDER:
-                at_edge = 1
-            elif self.board[d] == opp_color:
-                false_count += 1
-        return false_count <= 1 - at_edge  # 0 at edge, 1 in center
-
-    def _is_surrounded(self, point, color):
-        """
-        check whether empty point is surrounded by stones of color
-        (or BORDER) neighbors
-        """
-        for nb in self._neighbors(point):
-            nb_color = self.board[nb]
-            if nb_color != BORDER and nb_color != color:
-                return False
-        return True
-
-    def _has_liberty(self, block):
-        """
-        Check if the given block has any liberty.
-        block is a numpy boolean array
-        """
-        for stone in where1d(block):
-            empty_nbs = self.neighbors_of_color(stone, EMPTY)
-            if empty_nbs:
-                return True
-        return False
-
-    def _block_of(self, stone):
-        """
-        Find the block of given stone
-        Returns a board of boolean markers which are set for
-        all the points in the block 
-        """
-        color = self.get_color(stone)
-        assert is_black_white(color)
-        return self.connected_component(stone)
-
-    def connected_component(self, point):
-        """
-        Find the connected component of the given point.
-        """
-        marker = np.full(self.maxpoint, False, dtype=bool)
-        pointstack = [point]
-        color = self.get_color(point)
-        assert is_black_white_empty(color)
-        marker[point] = True
-        while pointstack:
-            p = pointstack.pop()
-            neighbors = self.neighbors_of_color(p, color)
-            for nb in neighbors:
-                if not marker[nb]:
-                    marker[nb] = True
-                    pointstack.append(nb)
-        return marker
-
-    def _detect_and_process_capture(self, nb_point):
-        """
-        Check whether opponent block on nb_point is captured.
-        If yes, remove the stones.
-        Returns the stone if only a single stone was captured,
-        and returns None otherwise.
-        This result is used in play_move to check for possible ko
-        """
-        single_capture = None
-        opp_block = self._block_of(nb_point)
-        if not self._has_liberty(opp_block):
-            captures = list(where1d(opp_block))
-            self.board[captures] = EMPTY
-            if len(captures) == 1:
-                single_capture = nb_point
-        return single_capture
+    def evaluate(self):
+        winColor = self.detect_five_in_a_row()
+        assert winColor != self.current_player
+        if winColor != EMPTY:
+            return -10000000
+        return self.assess_score(self.current_player)
 
     def play_move(self, point, color):
         """
@@ -371,11 +330,53 @@ class GoBoard(object):
                 return prev
         return EMPTY
 
-    def undoMove(self, move):
-        self.board[move] = EMPTY
-        self.current_player = GoBoardUtil.opponent(self.current_player)
+    def staticallyEvaluateForToPlay(self):
+        winColor = self.detect_five_in_a_row()
+        drawWinner = GoBoardUtil.opponent(self.current_player)
+        if (winColor == EMPTY and drawWinner):
+            winColor = drawWinner
+        if winColor == self.current_player:
+            return True
+        assert winColor == GoBoardUtil.opponent(self.current_player)
+        return False
 
-    def get_best_moves(self, m):
-        moves = self.get_empty_points()
-        return sorted(moves, key=self._move_score, reverse=True)
+    def calc_score(self, counts, color):
+        if color == BLACK:
+            count_white, count_black, count_empty = counts
+        else:
+            count_black, count_white, count_empty = counts
 
+        if count_white >= 1 and count_black >= 1:
+            return 0
+
+        return self.list_of_scores[count_white] - self.list_of_scores[count_black]
+
+    def get_counts(self, five_in_row):
+        black_count = 0
+        white_count = 0
+        empty_count = 0
+
+        for i in five_in_row:
+            cell = self.board[i]
+            if cell == BLACK:
+                black_count += 1
+            elif cell == WHITE:
+                white_count += 1
+            else:
+                empty_count += 1
+
+        return black_count, white_count, empty_count
+
+
+    def assess_score(self, color):
+        score = 0
+        lines = self.rows + self.cols + self.diags
+
+        for line in lines:
+            for i in range(len(line) - 5):
+                counts = self.get_counts(line[i:i+5])
+                score += self.calc_score(counts, color)
+
+        return score
+
+        

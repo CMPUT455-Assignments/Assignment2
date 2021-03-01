@@ -5,11 +5,10 @@ Parts of this code were originally based on the gtp module
 in the Deep-Go project by Isaac Henrion and Amos Storkey 
 at the University of Edinburgh.
 """
-import traceback, time
+import traceback
 from sys import stdin, stdout, stderr
 from board_util import (
     GoBoardUtil,
-    is_black_white,
     BLACK,
     WHITE,
     EMPTY,
@@ -20,6 +19,7 @@ from board_util import (
 )
 import numpy as np
 import re
+from tt import TranspositionTable, ZobristHash
 
 
 class GtpConnection:
@@ -37,6 +37,9 @@ class GtpConnection:
         self.go_engine = go_engine
         self.board = board
         self.max_time = 1
+        self.zobrist = ZobristHash(self.board.size)
+        self.tt = TranspositionTable()
+        self.oldBoardSize = self.board.size
         self.commands = {
             "protocol_version": self.protocol_version_cmd,
             "quit": self.quit_cmd,
@@ -49,9 +52,9 @@ class GtpConnection:
             "known_command": self.known_command_cmd,
             "genmove": self.genmove_cmd,
             "timelimit": self.timelimit_cmd,
+            "solve": self.solve_cmd,
             "list_commands": self.list_commands_cmd,
             "play": self.play_cmd,
-            "solve": self.solve_cmd,
             "legal_moves": self.legal_moves_cmd,
             "gogui-rules_game_id": self.gogui_rules_game_id_cmd,
             "gogui-rules_board_size": self.gogui_rules_board_size_cmd,
@@ -72,6 +75,7 @@ class GtpConnection:
             "genmove": (1, "Usage: genmove {w,b}"),
             "play": (2, "Usage: play {b,w} MOVE"),
             "timelimit": (1, "Usage: timelimit INT"),
+            "solve": (0, "No arguments required"),
             "legal_moves": (1, "Usage: legal_moves {w,b}"),
         }
 
@@ -184,6 +188,10 @@ class GtpConnection:
         Reset the game with new boardsize args[0]
         """
         self.reset(int(args[0]))
+        if self.board.size != self.oldBoardSize:
+            self.zobrist = ZobristHash(self.board.size)
+            self.tt = TranspositionTable()
+        self.oldBoardSize = self.board.size
         self.respond()
 
     def showboard_cmd(self, args):
@@ -265,8 +273,8 @@ class GtpConnection:
             self.respond("pass")
             return
         board_color = args[0].lower()
-        color = color_to_int(board_color)        
-        move = self.go_engine.get_move(self.board, color)
+        color = color_to_int(board_color)
+        move = self.go_engine.get_move(self.board, color, self.max_time, self.tt, self.zobrist)
         move_coord = point_to_coord(move, self.board.size)
         move_as_string = format_point(move_coord)
         if self.board.is_legal(move, color):
@@ -275,26 +283,20 @@ class GtpConnection:
         else:
             self.respond("Illegal move: {}".format(move_as_string))
 
-    def solve_cmd(self, args):
-        """
-        Return the color of the winner and the position of its move
-        """
-        winBlack, timeBlack = solveForColor(self.board, BLACK)
-        if winBlack and timeBlack <= self.max_time:
-            self.respond("b")
-        else:
-            winner = EMPTY
-            winWhite, timeWhite = solveForColor(self.board, WHITE)
-            if winWhite and timeWhite <= self.max_time:
-                winner = WHITE
-            self.respond(winner)
-
     def timelimit_cmd(self, args):
         if 1 <= int(args[0]) <= 100:
             self.max_time = int(args[0])
             self.respond("max time has changed to " + str(args[0]) + " seconds")
         else:
             self.respond("max time needs to be from 1 and 100 seconds")
+
+    def solve_cmd(self, args):
+        result, move = self.go_engine.solve(self.board, self.max_time, self.tt, self.zobrist)
+        if move is None:
+            self.respond("{}".format(result))
+        else:
+            move = format_point(point_to_coord(move, self.board.size))
+            self.respond("{} {}".format(result, move))
 
     def gogui_rules_game_id_cmd(self, args):
         self.respond("Gomoku")
@@ -426,3 +428,10 @@ def color_to_int(c):
     except:
         raise KeyError("\"{}\" wrong color".format(c))
 
+def color_to_string(c):
+    color_to_string = {BLACK: "b", WHITE: "w", EMPTY: "EMPTY", BORDER: "BORDER"}
+
+    try:
+        return color_to_string[c]
+    except:
+        raise KeyError("\"{}\" wrong color".format(c))

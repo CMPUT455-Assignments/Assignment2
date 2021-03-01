@@ -1,16 +1,16 @@
 from board_util import GoBoardUtil
-INFINITY = 100000
+INFINITY = 999999999
 
-def alphabeta(state, alpha, beta, tt, hasher):
-    hashCode = hasher.hash(GoBoardUtil.get_oneD_board(state))
-    result = tt.lookup(hashCode)
+def alphabeta(state, alpha, beta, tt, zobrist):
+    hashCode = zobrist.hash(GoBoardUtil.get_oneD_board(state))
+    result = tt.search(hashCode)
 
     if result is not None:
         return result
 
     if state.end_of_game():
         result = state.evaluate(), None
-        storeResult(tt, hashCode, result)
+        saveResult(tt, hashCode, result)
         return result
 
     moves = state.get_best_moves()
@@ -18,7 +18,7 @@ def alphabeta(state, alpha, beta, tt, hasher):
 
     for m in moves:
         state.play_move(m, state.current_player)
-        value, _ = alphabeta(state, -beta, -alpha, tt, hasher)
+        value, _ = alphabeta(state, -beta, -alpha, tt, zobrist)
         value = -value
         if value > alpha:
             alpha = value
@@ -26,19 +26,20 @@ def alphabeta(state, alpha, beta, tt, hasher):
         state.undo_move(m)
         if value >= beta:
             result = beta, m
-            storeResult(tt, hashCode, result)
+            saveResult(tt, hashCode, result)
             return result
 
     result = alpha, best_move
-    storeResult(tt, hashCode, result)
+    saveResult(tt, hashCode, result)
     return result
 
 
 # initial call with full window
-def call_alphabeta(rootState, tt, hasher):
-    return alphabeta(rootState, -INFINITY, INFINITY, tt, hasher)
+def call_alphabeta(state, tt, zobrist):
+    return alphabeta(state, -INFINITY, INFINITY, tt, zobrist)
 
 
-def storeResult(tt, code, result):
-    tt.store(code, result)
-    return result
+def saveResult(tt, cell, loc):
+    tt.save(cell, loc)
+    return loc
+

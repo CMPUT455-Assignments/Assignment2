@@ -180,3 +180,19 @@ class GoBoardUtil(object):
             start = goboard.row_start(row + 1)
             board2d[row, :] = goboard.board[start : start + size]
         return board2d
+    
+    @staticmethod
+    def get_oneD_board(goboard):
+        """
+        Return: numpy array
+        a one dimensional numpy array with the stones as the goboard.
+        Does not pad with BORDER
+        Rows 1..size of goboard are copied into rows 0..size - 1 of board1d
+        """
+        size = len(goboard.board)
+        board1d = []
+        for i in range(size):
+            if goboard.board[i] != 3:
+                board1d.append(goboard.board[i])
+        
+        return board1d
