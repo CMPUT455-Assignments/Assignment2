@@ -295,7 +295,7 @@ class GtpConnection:
             self.respond("max time has changed to " + str(args[0]) + " seconds")
         else:
             self.respond("max time needs to be from 1 and 100 seconds")
-            
+
     def gogui_rules_game_id_cmd(self, args):
         self.respond("Gomoku")
 
