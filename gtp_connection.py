@@ -275,7 +275,7 @@ class GtpConnection:
         else:
             self.respond("Illegal move: {}".format(move_as_string))
 
-    def solve_cmd(self, args):
+    '''def solve_cmd(self, args):
         """
         Return the color of the winner and the position of its move
         """
@@ -287,7 +287,7 @@ class GtpConnection:
             winWhite, timeWhite = solveForColor(self.board, WHITE)
             if winWhite and timeWhite <= self.max_time:
                 winner = WHITE
-            self.respond(winner)
+            self.respond(winner)'''
 
     def timelimit_cmd(self, args):
         if 1 <= int(args[0]) <= 100:
@@ -361,35 +361,6 @@ class GtpConnection:
                      "pstring/Rules GameID/gogui-rules_game_id\n"
                      "pstring/Show Board/gogui-rules_board\n"
                      )
-
-def negamaxBoolean(board):
-    if ((board.detect_five_in_a_row() != EMPTY) or len(board.get_empty_points()) == 0):
-        return evaluateForToPlay(board)
-    for m in board.get_empty_points():
-        board.play_move(m, board.current_player)
-        success = not negamaxBoolean(board)
-        board.undoMove()
-        if success:
-            return True
-    return False
-
-def evaluateForToPlay(board):
-    winColor = board.detect_five_in_a_row()
-    if (winColor == EMPTY):
-        winColor = GoBoardUtil.opponent(board.current_player)
-    if winColor == board.current_player:
-        return True
-    return False
-
-def solveForColor(board, color):
-    assert is_black_white(color)
-    #drawWinner = GoBoardUtil.opponent(color)
-    start = time.process_time()
-    #for m in board.get_empty_points():
-    winForToPlay = negamaxBoolean(board)
-    timeUsed = time.process_time() - start
-    winForColor = winForToPlay == (color == board.current_player)
-    return winForColor, timeUsed
 
 def point_to_coord(point, boardsize):
     """
